@@ -8,6 +8,9 @@ def get_train_data():
 def get_test_data():
     return pd.read_csv('test.csv')
 
+def get_test_labels():
+    return pd.read_csv('test_labels.csv')
+
 def plot_cost(cost_history):
     plt.plot(range(1, len(cost_history) + 1), cost_history, marker='o', linestyle='-')
     plt.xlabel("Epochs")
@@ -47,11 +50,7 @@ def train_softmax_regression(X, y, alpha, lambd, epochs, num_classes):
     B = np.zeros(num_classes)
     cost_history = []
     for _ in range(epochs):
-        Z = np.dot(X, W) + B # (m, num_classes) Logits
-
-        # exp_Z could be large number so we are using keepdims for overflow exception
-        exp_Z = np.exp(Z - np.max(Z, axis=1, keepdims=True)) # FT: Since Z_max is the largest value in each row, subtracting it shifts all values down, making the largest value in Z - Z_max 0
-        H = exp_Z / np.sum(exp_Z, axis=1, keepdims=True) # (m, num_classes) matrix where each row has probabilities that sum to 1
+        H = get_H_for_softmax(X, W, B)
 
         Y_one_hot = np.eye(num_classes)[y] # (m, num_classes)
 
@@ -67,14 +66,29 @@ def train_softmax_regression(X, y, alpha, lambd, epochs, num_classes):
 
     return W, B, cost_history
 
-def predict(X, W, B):
-    Z = np.dot(X, W) + B # (1, num_classes)
+def predict_for_softmax(X, W, B):
+    H = get_H_for_softmax(X, W, B)
 
-    exp_Z = np.exp(Z - np.max(Z, axis=1, keepdims=True))  # (1, num_classes)
-    H = exp_Z / np.sum(exp_Z, axis=1, keepdims=True)  # (1, num_classes)
-    
     predicted_class = np.argmax(H, axis=1) # (1, 1)
     
     return predicted_class
+
+def percent_correct_for_softmax(X_test, y_test, W, B):
+    H = get_H_for_softmax(X_test, W, B)
+
+    y_pred = np.argmax(H, axis=1)
+    correct = np.sum(y_pred == y_test)
+    total = len(y_test)
+    accuracy_percent = (correct / total) * 100
+
+    print(f"Accuracy: {accuracy_percent:.2f}%")
+
+    return accuracy_percent
+
+def get_H_for_softmax(X, W, B):
+    Z = np.dot(X, W) + B # (m, num_classes) Logits
+    # exp_Z could be large number so we are using keepdims for overflow exception
+    exp_Z = np.exp(Z - np.max(Z, axis=1, keepdims=True)) # FT: Since Z_max is the largest value in each row, subtracting it shifts all values down, making the largest value in Z - Z_max 0
+    return exp_Z / np.sum(exp_Z, axis=1, keepdims=True) # (m, num_classes) matrix where each row has probabilities that sum to 1
 
 #endregion
