@@ -219,4 +219,82 @@ def cost_derivative(output_activations, y):
 def sigmoid_prime(z):
     """Derivative of the sigmoid function."""
     return sigmoid(z)*(1-sigmoid(z))
+
+#endregion
+
+#region Test
+
+class Neuron:
+    def __init__(self, layer_sizes: np.ndarray, alpha: int = 0.1):
+        self.layer_sizes = layer_sizes
+        self.num_layers = len(layer_sizes)
+        self.alpha = alpha
+        self.weights = []
+        self.biases = []
+        for i in range(self.num_layers - 1):
+            self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i + 1]) * 0.01)
+            self.biases.append(np.zeros((1, self.layer_sizes[i + 1])))
+
+def draw_neural_net(layer_sizes, max_neurons=10):
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.axis('off')
+
+    h_spacing = 1.0 / float(len(layer_sizes) - 1)
+    neuron_coords = []
+
+    for i, layer_size in enumerate(layer_sizes):
+        layer_coords = []
+        if layer_size <= max_neurons:
+            neurons_to_draw = list(range(layer_size))
+        else:
+            half = max_neurons // 2
+            neurons_to_draw = list(range(half)) + ['...'] + list(range(layer_size - half, layer_size))
+
+        total_neurons = len(neurons_to_draw)
+        v_spacing = 0.05
+        top = (1 - v_spacing * (total_neurons - 1)) / 2
+
+        for j, idx in enumerate(neurons_to_draw):
+            x = i * h_spacing
+            y = top + j * v_spacing
+            if idx == '...':
+                ax.text(x, y, '...', ha='center', va='center')
+                layer_coords.append(None)
+            else:
+                circle = plt.Circle((x, y), 0.02, color='black', fill=True)
+                ax.add_patch(circle)
+                layer_coords.append((x, y))
+
+        neuron_coords.append(layer_coords)
+
+    # Draw connections (skip connections to/from '...')
+    for i in range(len(neuron_coords) - 1):
+        for a in neuron_coords[i]:
+            for b in neuron_coords[i + 1]:
+                if a is not None and b is not None:
+                    line = plt.Line2D((a[0], b[0]), (a[1], b[1]), c='gray', lw=0.5)
+                    ax.add_line(line)
+
+    plt.title('Neural Network Architecture (simplified)', fontsize=14)
+    plt.show()
+
+# def train_neural_network(X: np.ndarray, y: np.ndarray, alpha: float, epochs: int):
+#     m, n = X.shape
+#     w = np.zeros(n)
+#     b = 0.0
+#     cost_history = []
+#     for _ in range(epochs):
+#         predictions = np.dot(X, w) + b
+#         error = predictions - y
+        
+#         cost = np.mean(error ** 2)
+#         cost_history.append(cost)
+
+#         grad_w = np.dot(X.T, error) / m
+#         grad_b = np.sum(error) / m
+
+#         w -= alpha * grad_w
+#         b -= alpha * grad_b
+#     return w, b, cost_history
+
 #endregion
