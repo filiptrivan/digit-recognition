@@ -94,135 +94,7 @@ def get_H_for_softmax(X, W, B):
 
 #endregion
 
-#region Neural Networks
-
-# def __init__(self, sizes):
-#     """The list ``sizes`` contains the number of neurons in the
-#     respective layers of the network.  For example, if the list
-#     was [2, 3, 1] then it would be a three-layer network, with the
-#     first layer containing 2 neurons, the second layer 3 neurons,
-#     and the third layer 1 neuron.  The biases and weights for the
-#     network are initialized randomly, using a Gaussian
-#     distribution with mean 0, and variance 1.  Note that the first
-#     layer is assumed to be an input layer, and by convention we
-#     won't set any biases for those neurons, since biases are only
-#     ever used in computing the outputs from later layers."""
-#     self.num_layers = len(sizes)
-#     self.sizes = sizes
-#     self.biases = [np.random.randn(y, 1) for y in sizes[1:]]
-#     self.weights = [np.random.randn(y, x)
-#                     for x, y in zip(sizes[:-1], sizes[1:])]
-
-def sigmoid(z):
-    return 1.0/(1.0+np.exp(-z))
-
-def feedforward(a, b, w):
-    """Return the output of the network if "a" is input."""
-    for b, w in zip(b, w):
-        a = sigmoid(np.dot(w, a)+b)
-    return a
-
-def SGD(
-    training_data, 
-    epochs, 
-    mini_batch_size, 
-    alpha,
-    test_data=None
-):
-    """Train the neural network using mini-batch stochastic
-    gradient descent.  The "training_data" is a list of tuples
-    "(x, y)" representing the training inputs and the desired
-    outputs.  The other non-optional parameters are
-    self-explanatory.  If "test_data" is provided then the
-    network will be evaluated against the test data after each
-    epoch, and partial progress printed out.  This is useful for
-    tracking progress, but slows things down substantially."""
-    if test_data: n_test = len(test_data)
-    n = len(training_data)
-    for j in range(epochs):
-        random.shuffle(training_data)
-        mini_batches = [
-            training_data[k:k+mini_batch_size]
-            for k in range(0, n, mini_batch_size)]
-        for mini_batch in mini_batches:
-            update_mini_batch(mini_batch, alpha)
-        if test_data:
-            print("Epoch {0}: {1} / {2}".format(j, evaluate(test_data), n_test))
-        else:
-            print("Epoch {0} complete".format(j))
-
-def update_mini_batch(mini_batch, alpha, biases, weights):
-    """Update the network's weights and biases by applying
-    gradient descent using backpropagation to a single mini batch.
-    The "mini_batch" is a list of tuples "(x, y)", and "alpha"
-    is the learning rate."""
-    nabla_b = [np.zeros(b.shape) for b in biases]
-    nabla_w = [np.zeros(w.shape) for w in weights]
-    for x, y in mini_batch:
-        delta_nabla_b, delta_nabla_w = backprop(x, y)
-        nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-        nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-    weights = [w-(alpha/len(mini_batch))*nw 
-                    for w, nw in zip(weights, nabla_w)]
-    biases = [b-(alpha/len(mini_batch))*nb 
-                    for b, nb in zip(biases, nabla_b)]
-    
-def backprop(x, y, weights, biases):
-    """Return a tuple ``(nabla_b, nabla_w)`` representing the
-    gradient for the cost function C_x.  ``nabla_b`` and
-    ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
-    to ``biases`` and ``weights``."""
-    nabla_b = [np.zeros(b.shape) for b in biases]
-    nabla_w = [np.zeros(w.shape) for w in weights]
-    # feedforward
-    activation = x
-    activations = [x] # list to store all the activations, layer by layer
-    zs = [] # list to store all the z vectors, layer by layer
-    for b, w in zip(biases, weights):
-        z = np.dot(w, activation)+b
-        zs.append(z)
-        activation = sigmoid(z)
-        activations.append(activation)
-    # backward pass
-    delta = cost_derivative(activations[-1], y) * \
-        sigmoid_derivative(zs[-1])
-    nabla_b[-1] = delta
-    nabla_w[-1] = np.dot(delta, activations[-2].transpose())
-    # Note that the variable l in the loop below is used a little
-    # differently to the notation in Chapter 2 of the book.  Here,
-    # l = 1 means the last layer of neurons, l = 2 is the
-    # second-last layer, and so on.  It's a renumbering of the
-    # scheme in the book, used here to take advantage of the fact
-    # that Python can use negative indices in lists.
-    for l in range(2, num_layers):
-        z = zs[-l]
-        sp = sigmoid_derivative(z)
-        delta = np.dot(weights[-l+1].transpose(), delta) * sp
-        nabla_b[-l] = delta
-        nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
-    return (nabla_b, nabla_w)
-
-def evaluate(test_data):
-    """Return the number of test inputs for which the neural
-    network outputs the correct result. Note that the neural
-    network's output is assumed to be the index of whichever
-    neuron in the final layer has the highest activation."""
-    test_results = [(np.argmax(feedforward(x)), y)
-                    for (x, y) in test_data]
-    return sum(int(x == y) for (x, y) in test_results)
-
-def cost_derivative(output_activations, y):
-    """Return the vector of partial derivatives \partial C_x /
-    \partial a for the output activations."""
-    return (output_activations-y)
-
-def sigmoid_derivative(z):
-    """Derivative of the sigmoid function."""
-    return sigmoid(z)*(1-sigmoid(z))
-
-#endregion
-
-#region Test
+#region Neural Network
 
 class NeuralNetwork:
     def __init__(self, layer_sizes: np.ndarray, alpha: int = 0.1):
@@ -236,28 +108,22 @@ class NeuralNetwork:
             self.biases.append(np.zeros((1, self.layer_sizes[i + 1])))
     
     def forward(self, X):
-        print(X.shape)
-        self.activations = [X]
+        self.activations = [X] # FT: At the end there will be num_layers number of activations
         self.z_values = []
 
         for w, b in zip(self.weights, self.biases):
             z = np.dot(self.activations[-1], w) + b
             a = sigmoid(z)
-            print(a.shape)
             self.z_values.append(z)
             self.activations.append(a)
 
-        print(len(self.activations))
-
-        return self.activations[-1]
+        return self.activations[-1] # FT: Returning last, output, activation
     
-    def SGD(self, training_data, epochs, mini_batch_size, eta,
-            test_data=None):
+    def SGD(self, training_data, epochs, mini_batch_size, alpha, test_data=None):
         """Train the neural network using mini-batch stochastic
         gradient descent.  The ``training_data`` is a list of tuples
         ``(x, y)`` representing the training inputs and the desired
-        outputs.  The other non-optional parameters are
-        self-explanatory.  If ``test_data`` is provided then the
+        outputs. If ``test_data`` is provided then the
         network will be evaluated against the test data after each
         epoch, and partial progress printed out.  This is useful for
         tracking progress, but slows things down substantially."""
@@ -269,7 +135,7 @@ class NeuralNetwork:
                 training_data[k:k+mini_batch_size]
                 for k in range(0, n, mini_batch_size)]
             for mini_batch in mini_batches:
-                self.update_mini_batch(mini_batch, eta)
+                self.update_mini_batch(mini_batch, alpha)
             if test_data:
                 print("Epoch {0}: {1} / {2}".format(j, self.evaluate(test_data), n_test))
             else:
@@ -278,26 +144,27 @@ class NeuralNetwork:
     def update_mini_batch(self, mini_batch, alpha):
         """Update the network's weights and biases by applying
         gradient descent using backpropagation to a single mini batch.
-        The ``mini_batch`` is a list of tuples ``(x, y)``, and ``alpha``
-        is the learning rate."""
-        nabla_b = [np.zeros(b.shape) for b in self.biases]
-        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        The ``mini_batch`` is a list of tuples ``(x, y)``"""
+        biases_temp = [np.zeros(b.shape) for b in self.biases]
+        weights_temp = [np.zeros(w.shape) for w in self.weights]
         for x, y in mini_batch:
-            delta_nabla_b, delta_nabla_w = self.backprop(x, y)
-            nabla_b = [nb+dnb for nb, dnb in zip(nabla_b, delta_nabla_b)]
-            nabla_w = [nw+dnw for nw, dnw in zip(nabla_w, delta_nabla_w)]
-        self.weights = [w-(alpha/len(mini_batch))*nw
-                        for w, nw in zip(self.weights, nabla_w)]
-        self.biases = [b-(alpha/len(mini_batch))*nb
-                       for b, nb in zip(self.biases, nabla_b)]
+            # FT: Backprop is a fast way for calculating gradients of weights and biases
+            # Calculates how much each weight should change for x, y pair
+            delta_weights_temp, delta_biases_temp = self.backprop(x, y)
+            weights_temp = [nw + dnw 
+                            for nw, dnw in zip(weights_temp, delta_weights_temp)]
+            biases_temp = [nb + dnb 
+                           for nb, dnb in zip(biases_temp, delta_biases_temp)]
+        self.weights = [w - (alpha / len(mini_batch)) * nw # nw is derivative of cost func with respect to w
+                        for w, nw in zip(self.weights, weights_temp)]
+        self.biases = [b - (alpha / len(mini_batch)) * nb # nb is derivative of cost func with respect to b
+                       for b, nb in zip(self.biases, biases_temp)]
 
     def backprop(self, x, y):
-        """Return a tuple ``(nabla_b, nabla_w)`` representing the
-        gradient for the cost function C_x.  ``nabla_b`` and
-        ``nabla_w`` are layer-by-layer lists of numpy arrays, similar
-        to ``self.biases`` and ``self.weights``."""
-        nabla_b = [np.zeros(b.shape) for b in self.biases]
-        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        """Return a tuple ``(biases_temp, weights_temp)`` representing the
+        gradient for the cost function C_x."""
+        weights_temp = [np.zeros(w.shape) for w in self.weights]
+        biases_temp = [np.zeros(b.shape) for b in self.biases]
         # feedforward
         activation = x
         activations = [x] # list to store all the activations, layer by layer
@@ -310,8 +177,8 @@ class NeuralNetwork:
         # backward pass
         error = activations[-1] - y
         delta = error * sigmoid_derivative(zs[-1])
-        nabla_b[-1] = delta
-        nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+        weights_temp[-1] = np.dot(delta, activations[-2].transpose())
+        biases_temp[-1] = delta
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
         # l = 1 means the last layer of neurons, l = 2 is the
@@ -322,12 +189,12 @@ class NeuralNetwork:
             z = zs[-l]
             sp = sigmoid_derivative(z)
             delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
-            nabla_b[-l] = delta
-            nabla_w[-l] = np.dot(delta, activations[-l-1].transpose())
-        return (nabla_b, nabla_w)
+            biases_temp[-l] = delta
+            weights_temp[-l] = np.dot(delta, activations[-l-1].transpose())
+        return (weights_temp, biases_temp)
     
-    def predict():
-        return
+    def predict(self, X):
+        return [np.argmax(a) for a in self.forward(X)]
 
 def sigmoid(z):
     return 1 / (1 + np.exp(-z))
@@ -377,24 +244,5 @@ def draw_neural_net(layer_sizes, max_neurons=10):
 
     plt.title('Neural Network Architecture (simplified)', fontsize=14)
     plt.show()
-
-# def train_neural_network(X: np.ndarray, y: np.ndarray, alpha: float, epochs: int):
-#     m, n = X.shape
-#     w = np.zeros(n)
-#     b = 0.0
-#     cost_history = []
-#     for _ in range(epochs):
-#         predictions = np.dot(X, w) + b
-#         error = predictions - y
-        
-#         cost = np.mean(error ** 2)
-#         cost_history.append(cost)
-
-#         grad_w = np.dot(X.T, error) / m
-#         grad_b = np.sum(error) / m
-
-#         w -= alpha * grad_w
-#         b -= alpha * grad_b
-#     return w, b, cost_history
 
 #endregion
