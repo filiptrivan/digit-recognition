@@ -101,6 +101,9 @@ class NeuralNetwork:
         self.layer_sizes = layer_sizes
         self.num_layers = len(layer_sizes)
         self.alpha = alpha
+        # self.biases = [np.random.randn(y, 1) for y in layer_sizes[1:]]
+        # self.weights = [np.random.randn(y, x)
+        #                 for x, y in zip(layer_sizes[:-1], layer_sizes[1:])]
         self.weights = []
         self.biases = []
         for i in range(self.num_layers - 1):
@@ -170,13 +173,17 @@ class NeuralNetwork:
         activations = [x] # list to store all the activations, layer by layer
         zs = [] # list to store all the z vectors, layer by layer
         for b, w in zip(self.biases, self.weights):
-            z = np.dot(w, activation) + b
+            z = np.dot(activation, w) + b
             zs.append(z)
+            # print(f'{activation.shape} dot {w.shape} => {z.shape}')
             activation = sigmoid(z)
             activations.append(activation)
+
         # backward pass
         error = activations[-1] - y
         delta = error * sigmoid_derivative(zs[-1])
+        print(delta.shape)
+        print(activations[-2].shape)
         weights_temp[-1] = np.dot(delta, activations[-2].transpose())
         biases_temp[-1] = delta
         # Note that the variable l in the loop below is used a little
@@ -188,7 +195,7 @@ class NeuralNetwork:
         for l in range(2, self.num_layers):
             z = zs[-l]
             sp = sigmoid_derivative(z)
-            delta = np.dot(self.weights[-l+1].transpose(), delta) * sp
+            delta = np.dot(self.weights[-l+1], delta) * sp
             biases_temp[-l] = delta
             weights_temp[-l] = np.dot(delta, activations[-l-1].transpose())
         return (weights_temp, biases_temp)
