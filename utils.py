@@ -168,9 +168,10 @@ class NeuralNetwork:
         gradient for the cost function C_x."""
         weights_temp = [np.zeros(w.shape) for w in self.weights]
         biases_temp = [np.zeros(b.shape) for b in self.biases]
+
         # feedforward
         activation = x
-        activations = [x] # list to store all the activations, layer by layer
+        activations = [activation] # list to store all the activations, layer by layer
         zs = [] # list to store all the z vectors, layer by layer
         for b, w in zip(self.biases, self.weights):
             z = np.dot(activation, w) + b
@@ -180,11 +181,13 @@ class NeuralNetwork:
             activations.append(activation)
 
         # backward pass
+        # dC/dw = dz/dw * da/dz * dC/da = a(l-1) * d'(z(l)) * 2(a(l) - y)
+        # dC/db = dz/db * da/dz * dC/da =          d'(z(l)) * 2(a(l) - y)
         error = activations[-1] - y
-        delta = error * sigmoid_derivative(zs[-1])
-        print(delta.shape)
-        print(activations[-2].shape)
-        weights_temp[-1] = np.dot(delta, activations[-2].transpose())
+        delta = error * sigmoid_derivative(zs[-1]) # [1, 0, ..., 10] - [2, 1, ..., 4]
+        # print(delta.shape) # (1, 10)
+        # print(activations[-2].shape) # (1, 15)
+        weights_temp[-1] = np.dot(activations[-2].T, delta)
         biases_temp[-1] = delta
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
@@ -195,19 +198,23 @@ class NeuralNetwork:
         for l in range(2, self.num_layers):
             z = zs[-l]
             sp = sigmoid_derivative(z)
-            delta = np.dot(self.weights[-l+1], delta) * sp
+            # print(delta.shape) # (1, 10)
+            # print(self.weights[-l+1].T.shape) # (10, 15)
+            delta = np.dot(delta, self.weights[-l+1].T) * sp
+            # print(activations[-l-1].T.shape) # (10, 1)
+            # print(delta.shape) # (1, 10)
+            weights_temp[-l] = np.dot(activations[-l-1].T, delta)
             biases_temp[-l] = delta
-            weights_temp[-l] = np.dot(delta, activations[-l-1].transpose())
         return (weights_temp, biases_temp)
     
     def predict(self, X):
         return [np.argmax(a) for a in self.forward(X)]
 
 def sigmoid(z):
-    return 1 / (1 + np.exp(-z))
+    return 1.0 / (1.0 + np.exp(-z))
 
 def sigmoid_derivative(z):
-    return z * (1 - z)
+    return z * (1.0 - z)
 
 def draw_neural_net(layer_sizes, max_neurons=10):
     fig, ax = plt.subplots(figsize=(12, 6))
