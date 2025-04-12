@@ -97,20 +97,22 @@ def get_H_for_softmax(X, W, B):
 #region Neural Network
 
 class NeuralNetwork:
-    def __init__(self, layer_sizes: np.ndarray, alpha: int = 0.1):
+    def __init__(self, layer_sizes: np.ndarray):
         self.layer_sizes = layer_sizes
         self.num_layers = len(layer_sizes)
-        self.alpha = alpha
-        # self.biases = [np.random.randn(y, 1) for y in layer_sizes[1:]]
-        # self.weights = [np.random.randn(y, x)
-        #                 for x, y in zip(layer_sizes[:-1], layer_sizes[1:])]
         self.weights = []
         self.biases = []
         for i in range(self.num_layers - 1):
-            self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i + 1]) * 0.01)
+            n_in = self.layer_sizes[i]
+            n_out = self.layer_sizes[i + 1]
+            limit = np.sqrt(1.0 / n_in)
+            self.weights.append(np.random.uniform(-limit, limit, (n_in, n_out)))
+            # self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i + 1]) * 0.01)
             self.biases.append(np.zeros((1, self.layer_sizes[i + 1])))
     
-    def forward(self, X):
+    def forward(self, X: np.ndarray) -> np.ndarray:
+        X = np.atleast_2d(X)
+        
         self.activations = [X] # FT: At the end there will be num_layers number of activations
         self.z_values = []
 
@@ -130,50 +132,68 @@ class NeuralNetwork:
         network will be evaluated against the test data after each
         epoch, and partial progress printed out.  This is useful for
         tracking progress, but slows things down substantially."""
-        if test_data: n_test = len(test_data)
+        if test_data: 
+            n_test = len(test_data)
         n = len(training_data)
-        for j in range(epochs):
+
+        for epoch in range(epochs):
             random.shuffle(training_data)
-            mini_batches = [
-                training_data[k:k+mini_batch_size]
-                for k in range(0, n, mini_batch_size)]
+            mini_batches = [training_data[k:k+mini_batch_size]
+                            for k in range(0, n, mini_batch_size)]
+            
             for mini_batch in mini_batches:
                 self.update_mini_batch(mini_batch, alpha)
+
             if test_data:
-                print("Epoch {0}: {1} / {2}".format(j, self.evaluate(test_data), n_test))
+                print("Epoch {0}: {1} / {2}".format(epoch, self.evaluate(test_data), n_test))
             else:
-                print("Epoch {0} complete".format(j))
+                print("Epoch {0} complete".format(epoch))
     
     def update_mini_batch(self, mini_batch, alpha):
         """Update the network's weights and biases by applying
         gradient descent using backpropagation to a single mini batch.
         The ``mini_batch`` is a list of tuples ``(x, y)``"""
-        biases_temp = [np.zeros(b.shape) for b in self.biases]
-        weights_temp = [np.zeros(w.shape) for w in self.weights]
+        nabla_weights = [np.zeros(w.shape) for w in self.weights]
+        nabla_biases = [np.zeros(b.shape) for b in self.biases]
+
         for x, y in mini_batch:
             # FT: Backprop is a fast way for calculating gradients of weights and biases
             # Calculates how much each weight should change for x, y pair
-            delta_weights_temp, delta_biases_temp = self.backprop(x, y)
-            weights_temp = [nw + dnw 
-                            for nw, dnw in zip(weights_temp, delta_weights_temp)]
-            biases_temp = [nb + dnb 
-                           for nb, dnb in zip(biases_temp, delta_biases_temp)]
-        self.weights = [w - (alpha / len(mini_batch)) * nw # nw is derivative of cost func with respect to w
-                        for w, nw in zip(self.weights, weights_temp)]
-        self.biases = [b - (alpha / len(mini_batch)) * nb # nb is derivative of cost func with respect to b
-                       for b, nb in zip(self.biases, biases_temp)]
+            delta_nabla_weights, delta_nabla_biases = self.backprop(x, y)
+            nabla_weights = [nw + dnw 
+                            for nw, dnw in zip(nabla_weights, delta_nabla_weights)]
+            nabla_biases = [nb + dnb 
+                           for nb, dnb in zip(nabla_biases, delta_nabla_biases)]
+            
+        m = len(mini_batch)
+
+        self.weights = [w - (alpha / m) * nw # nw is derivative of cost func with respect to w
+                        for w, nw in zip(self.weights, nabla_weights)]
+        self.biases = [b - (alpha / m) * nb # nb is derivative of cost func with respect to b
+                       for b, nb in zip(self.biases, nabla_biases)]
 
     def backprop(self, x, y):
-        """Return a tuple ``(biases_temp, weights_temp)`` representing the
+        """Return a tuple ``(nabla_weights, nabla_biases)`` representing the
         gradient for the cost function C_x."""
-        weights_temp = [np.zeros(w.shape) for w in self.weights]
-        biases_temp = [np.zeros(b.shape) for b in self.biases]
+        # Ensure shapes: x -> (1, n_features), y -> (1, n_output) or scalar
+        x = np.atleast_2d(x)
+        # If y is scalar (label), convert to one-hot vector
+        y_vec = y
+        if np.isscalar(y) or y.ndim == 0:
+            # Create one-hot encoding
+            y_vec = np.zeros((1, self.layer_sizes[-1]))
+            y_vec[0, int(y)] = 1.0
+        else:
+            y_vec = np.atleast_2d(y)
+
+        nabla_weights = [np.zeros(w.shape) for w in self.weights]
+        nabla_biases = [np.zeros(b.shape) for b in self.biases]
 
         # feedforward
         activation = x
         activations = [activation] # list to store all the activations, layer by layer
         zs = [] # list to store all the z vectors, layer by layer
-        for b, w in zip(self.biases, self.weights):
+        for w, b in zip(self.weights, self.biases):
             z = np.dot(activation, w) + b
             zs.append(z)
             # print(f'{activation.shape} dot {w.shape} => {z.shape}')
@@ -183,12 +203,14 @@ class NeuralNetwork:
         # backward pass
         # dC/dw = dz/dw * da/dz * dC/da = a(l-1) * d'(z(l)) * 2(a(l) - y)
         # dC/db = dz/db * da/dz * dC/da =          d'(z(l)) * 2(a(l) - y)
-        error = activations[-1] - y
+        error = activations[-1] - y_vec
+        # δ⁽ᴸ⁾ = (a⁽ᴸ⁾ - y) * σ′(z⁽ᴸ⁾)
         delta = error * sigmoid_derivative(zs[-1]) # [1, 0, ..., 10] - [2, 1, ..., 4]
         # print(delta.shape) # (1, 10)
         # print(activations[-2].shape) # (1, 15)
-        weights_temp[-1] = np.dot(activations[-2].T, delta)
-        biases_temp[-1] = delta
+        nabla_weights[-1] = np.dot(activations[-2].T, delta)
+        # nabla_biases[-1] = delta
+        nabla_biases[-1] = delta.sum(axis=0, keepdims=True)
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
         # l = 1 means the last layer of neurons, l = 2 is the
@@ -197,24 +219,38 @@ class NeuralNetwork:
         # that Python can use negative indices in lists.
         for l in range(2, self.num_layers):
             z = zs[-l]
-            sp = sigmoid_derivative(z)
+            sd = sigmoid_derivative(z)
             # print(delta.shape) # (1, 10)
             # print(self.weights[-l+1].T.shape) # (10, 15)
-            delta = np.dot(delta, self.weights[-l+1].T) * sp
+            delta = np.dot(delta, self.weights[-l+1].T) * sd
             # print(activations[-l-1].T.shape) # (10, 1)
             # print(delta.shape) # (1, 10)
-            weights_temp[-l] = np.dot(activations[-l-1].T, delta)
-            biases_temp[-l] = delta
-        return (weights_temp, biases_temp)
+            nabla_weights[-l] = np.dot(activations[-l-1].T, delta)
+            # nabla_biases[-l] = delta
+            nabla_biases[-l] = delta.sum(axis=0, keepdims=True)
+
+        # ∇w, ∇b - dC/dw, dC/db
+        return nabla_weights, nabla_biases
     
+    def evaluate(self, test_data):
+        test_results = [(np.argmax(self.forward(x)), y) for (x, y) in test_data]
+        return sum(int(pred == y) for (pred, y) in test_results)
+
     def predict(self, X):
-        return [np.argmax(a) for a in self.forward(X)]
+        outputs = self.forward(X)
+        # If multiple samples
+        if outputs.ndim == 2:
+            return [int(np.argmax(o)) for o in outputs]
+        # Single sample
+        return int(np.argmax(outputs))
 
 def sigmoid(z):
+    z = np.clip(z, -500, +500) # Avoiding overflow
     return 1.0 / (1.0 + np.exp(-z))
 
 def sigmoid_derivative(z):
-    return z * (1.0 - z)
+    a = sigmoid(z)
+    return a * (1.0 - a)
 
 def draw_neural_net(layer_sizes, max_neurons=10):
     fig, ax = plt.subplots(figsize=(12, 6))
