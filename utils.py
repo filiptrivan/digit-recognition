@@ -103,12 +103,8 @@ class NeuralNetwork:
         self.weights = []
         self.biases = []
         for i in range(self.num_layers - 1):
-            n_in = self.layer_sizes[i]
-            n_out = self.layer_sizes[i + 1]
-            limit = np.sqrt(1.0 / n_in)
-            self.weights.append(np.random.uniform(-limit, limit, (n_in, n_out)))
-            # self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i + 1]) * 0.01)
-            self.biases.append(np.zeros((1, self.layer_sizes[i + 1])))
+            self.weights.append(np.random.randn(self.layer_sizes[i], self.layer_sizes[i + 1]) * np.sqrt(1 / self.layer_sizes[i]))
+            self.biases.append(np.random.randn(1, self.layer_sizes[i + 1]))
     
     def forward(self, X: np.ndarray) -> np.ndarray:
         X = np.atleast_2d(X)
@@ -177,14 +173,6 @@ class NeuralNetwork:
         gradient for the cost function C_x."""
         # Ensure shapes: x -> (1, n_features), y -> (1, n_output) or scalar
         x = np.atleast_2d(x)
-        # If y is scalar (label), convert to one-hot vector
-        y_vec = y
-        if np.isscalar(y) or y.ndim == 0:
-            # Create one-hot encoding
-            y_vec = np.zeros((1, self.layer_sizes[-1]))
-            y_vec[0, int(y)] = 1.0
-        else:
-            y_vec = np.atleast_2d(y)
 
         nabla_weights = [np.zeros(w.shape) for w in self.weights]
         nabla_biases = [np.zeros(b.shape) for b in self.biases]
@@ -203,14 +191,14 @@ class NeuralNetwork:
         # backward pass
         # dC/dw = dz/dw * da/dz * dC/da = a(l-1) * d'(z(l)) * 2(a(l) - y)
         # dC/db = dz/db * da/dz * dC/da =          d'(z(l)) * 2(a(l) - y)
-        error = activations[-1] - y_vec
+        y_one_hot = np.eye(self.layer_sizes[-1])[y] # if the value of y is [2] make it [0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
+        error = activations[-1] - y_one_hot
         # δ⁽ᴸ⁾ = (a⁽ᴸ⁾ - y) * σ′(z⁽ᴸ⁾)
-        delta = error * sigmoid_derivative(zs[-1]) # [1, 0, ..., 10] - [2, 1, ..., 4]
+        delta = error * sigmoid_derivative(zs[-1]) # [1, 0, ..., -0.5] - [2, 1, ..., 4]
         # print(delta.shape) # (1, 10)
         # print(activations[-2].shape) # (1, 15)
         nabla_weights[-1] = np.dot(activations[-2].T, delta)
-        # nabla_biases[-1] = delta
-        nabla_biases[-1] = delta.sum(axis=0, keepdims=True)
+        nabla_biases[-1] = delta
         # Note that the variable l in the loop below is used a little
         # differently to the notation in Chapter 2 of the book.  Here,
         # l = 1 means the last layer of neurons, l = 2 is the
@@ -226,14 +214,17 @@ class NeuralNetwork:
             # print(activations[-l-1].T.shape) # (10, 1)
             # print(delta.shape) # (1, 10)
             nabla_weights[-l] = np.dot(activations[-l-1].T, delta)
-            # nabla_biases[-l] = delta
-            nabla_biases[-l] = delta.sum(axis=0, keepdims=True)
+            nabla_biases[-l] = delta
 
         # ∇w, ∇b - dC/dw, dC/db
         return nabla_weights, nabla_biases
     
     def evaluate(self, test_data):
-        test_results = [(np.argmax(self.forward(x)), y) for (x, y) in test_data]
+        # FT: Unpack y as a scalar because it's (1,) shape
+        test_results = [
+            (np.argmax(self.forward(x)), y_scalar)
+            for (x, (y_scalar,)) in test_data
+        ]
         return sum(int(pred == y) for (pred, y) in test_results)
 
     def predict(self, X):
